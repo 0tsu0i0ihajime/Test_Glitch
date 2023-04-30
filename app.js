@@ -5,14 +5,18 @@ const path = require('path')
 const app = express();
 
 app.use(bodyParser.json());
-app.use(express.static("public"));
+app.use((req, res, next) =>{
+  res.setHeader('Cache-Control', 'no-store')
+  next()
+})
 app.use(bodyParser.urlencoded({ extended: false }));
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, "public", "form.html"))
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', (req, res, next) => {
+    let url = 'https://www.google.com'
     const { username, password } = req.body;
 
     if(username && password){
@@ -20,16 +24,13 @@ app.post('/login', (req, res) => {
             // req.session.username = username;
             res.redirect('https://www.youtube.com')
         }else{
-            res.send('/login?error=Invalid username or password')
+            res.send('<body>login error=Invalid username or password<br><a href="'+url+'">Visit Login Form</a></body>')
         }
     }else{
-        res.send('Please enter a username and password')
-        setTimeout(()=>{
-            res.redirect('https://www.google.com')
-        },2000)
+        res.send('<body>Please enter a username and password<br><a href="'+url+'">Visit Login Form</a></body>')
     }
 });
 
-app.listen(3000, ()=>{
-    console.log('App listening on port 3000')
+app.listen(process.env.PORT || 8080, () => {
+  console.log(`Server listening on port ${process.env.PORT || 8080}`);
 });

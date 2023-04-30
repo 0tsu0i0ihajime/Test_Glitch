@@ -5,10 +5,6 @@ const path = require('path')
 const app = express();
 
 app.use(bodyParser.json());
-app.use((req, res, next) =>{
-  res.setHeader('Cache-Control', 'no-store')
-  next()
-})
 app.use(bodyParser.urlencoded({ extended: false }));
 
 app.get('/', (req, res) => {

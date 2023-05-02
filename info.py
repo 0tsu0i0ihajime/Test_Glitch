@@ -7,10 +7,10 @@ opts = {
     'ignoreerrors': True,
     'extract_flat': True
 }
+links = []
 
 
 def is_playlist(link):
-    links = []
     with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(link, download=False)
         if 'entries' in info:
@@ -18,10 +18,11 @@ def is_playlist(link):
                 links.append(info['entries'][i]['webpage_url'])
         else:
             links.append(link)
-    print(links)
 
 if isinstance(url, list):
     for i in range(len(url)):
         is_playlist(url[i])
 else:
     is_playlist(url)
+
+print(links)

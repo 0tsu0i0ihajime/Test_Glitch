@@ -81,15 +81,13 @@ app.post("/stream", (req, res) => {
 app.get("/play", (req, res) => {
   const url = req.session.url;
   const { sessionId } = req.cookies;
-  let output = '';
+  req.session.output = '';
   const checkInfo = spawn("python3", ["info.py", url]);
   checkInfo.stdout.on("data", (data)=>{
-    output += data.toString();
+    req.session.output += data.toString();
   });
   checkInfo.stdout.on("end", ()=>{
-    console.log(output);
-    res.send(output)
-    return
+    console.log(req.session.output);
   });
   // const ytDlpProcess = spawn("yt-dlp", playlist_link, url);
 

@@ -1,16 +1,20 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
+
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Input URL</title>
-  </head>
-  <body>
+</head>
+
+<body>
     <h1>Input URL</h1>
     <form action="/stream" method="post">
-      <input type="text" name="url" />
-      <input type="submit" value="Submit" />
+        <label for="url">URL:</label>
+        <input type="text" name="url" />
+        <input type="submit" value="Submit" />
     </form>
     <h2>入力欄に複数のURLを入力する時は半角のスペースを間に入力して</h2>
-  </body>
+</body>
+
 </html>

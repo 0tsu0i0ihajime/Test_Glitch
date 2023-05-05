@@ -1,5 +1,4 @@
 from yt_dlp import YoutubeDL
-from pprint import pprint
 import sys
 
 url = sys.argv[1:]

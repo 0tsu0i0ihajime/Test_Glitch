@@ -1,20 +1,26 @@
-const express = require('express');
-const session = require('express-session');
-const bodyParser = require("body-parser");
-const path = require("path");
-const cookieParser = require("cookie-parser");
-const fs = require("fs");
-const { spawn } = require("child_process");
-const redis = require('redis')
-const RedisStore = require('connect-redis')(session);
+const express = require('express'),
+      session = require('express-session'),
+      bodyParser = require("body-parser"),
+      path = require("path"),
+      cookieParser = require("cookie-parser"),
+      fs = require("fs"),
+      { spawn } = require("child_process"),
+      crypto = require('crypto'),
+      http = require('http');
 
+let users = JSON.parse(fs.readFileSync('pass.json', 'utf8'));
 let tar_URL = "https://www.google.com";
 const app = express();
-const redisClient = redis.createClient(process.env.REDIS_URL)
+
+fs.watch('pass.json', (event, filename)=>{
+  if(event === 'change'){
+    console.log(`${filename}change!`)
+    users = JSON.parse(fs.readFileSync('pass.json', 'utf8'));
+  }
+})
 
 app.use(
   session({
-    store: new RedisStore({client:redisClient}),
     secret: "My Secret Key: Common",
     resave: false,
     saveUninitialized: true,
@@ -22,10 +28,8 @@ app.use(
 );
 app.use(cookieParser());
 app.use(bodyParser.json());
+app.use(express.static('public'))
 app.use(bodyParser.urlencoded({ extended: false }));
-redisClient.HSET('users', 'admin', 'password', (err, reply)=>{
-  console.log(reply)
-})
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "form.html"));
@@ -37,25 +41,17 @@ app.post("/login", (req, res) => {
     res.send(`<body>Please enter a username and password<br><a href="${tar_URL}">Visit Login Form</a></body>`);
     return
   }
-  redisClient.get(username, (err, Redispassword)=>{
-    if(err){
-      res.send(`<body>login error=Invalid username or password<br><a href="${tar_URL}">Visit Login Form</a></body>`);
-      console.log(err)
-      return
-    }else if(Redispassword===password){
-      res.send('一致')
-      return
-    }else{
-      res.send('エラー')
-      return
-    }
-  })
-
+  
   if (username && password) {
-    if (username === "admin" && password === "password") {
+    if(users[username] === password){
       req.session.username = username;
-      res.cookie("sessionId", req.session.id);
+      const uniqueKey = `${username}:${password}`
+      const sessionID = crypto.createHash('sha256').update(uniqueKey).digest('hex');
+      res.cookie("sessionId", sessionID);
       res.sendFile(path.join(__dirname, "public", "stream.html"));
+    }else{
+      res.redirect('/')
+      return
     }
   }
 });
@@ -63,8 +59,7 @@ app.post("/login", (req, res) => {
 app.post("/stream", (req, res) => {
   const { sessionId } = req.cookies;
   if (!sessionId || !req.session.username) {
-    // res.redirect("/");
-    res.send("データが足りない");
+    res.redirect("/");
     return;
   }
   if (!req.body.url) {
@@ -85,31 +80,141 @@ app.post("/stream", (req, res) => {
   res.redirect("/play");
 });
 
+app.get("/send", (req, res) => {
+  if(!req.session.filePath){
+    res.redirect("/stream")
+    return
+  }else{
+    const path = req.session.filePath;
+    const stat = fs.statSync(path);
+    const fileSize = stat.size;
+    const range = req.header.range;
+    if(range){
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] 
+        ? parseInt(parts[1], 10)
+        : fileSize - 1;
+      const chunksize = (end - start) + 1;
+      const file = fs.createReadStream(path, {start, end});
+      const head = {
+      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': chunksize,
+      'Content-Type': 'audio/mpeg',
+      };
+      res.writeHead(206, head);
+      file.pipe(res);
+      file.on('error', (err)=>{
+        res.statusCode = 500;
+        res.end(`Server Error: ${err.message}`)
+        return
+      });
+      file.on('end', ()=>{
+        res.end();
+      });
+    }else{
+      const head = {
+        'Content-Length': fileSize,
+        'Content-Type': 'audio/mpeg',
+        'Transfer-Encoding': 'chunked'
+      };
+      const readStream = fs.createReadStream(path);
+      res.writeHead(200, head);
+      readStream.pipe(res);
+      readStream.on('error', (err)=>{
+        res.statusCode = 500;
+        res.end(`Server Error: ${err.message}`)
+        return
+      });
+      readStream.on('end', ()=>{
+        res.end();
+      });
+    }
+    // readStream.on('open', ()=>{
+      // res.set("Content-Type", "text/html");
+      // res.send(`<!DOCTYPE html>
+      // <html lang="ja">
+      // <head>
+      //     <meta charset="UTF-8">
+      //     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      //     <title>Play</title>
+      // </head>
+      // <body>
+      //   <audio controls src="/send"></audio>
+      // </body>
+      // </html>`)
+  }
+});
+
 app.get("/play", (req, res) => {
+  const targetString = '[ExtractAudio] Destination: ';
   const url = req.session.url;
   const { sessionId } = req.cookies;
+  req.session.output = []
   const checkInfo = spawn("python3", ["info.py", url]);
   checkInfo.stdout.on("data", (data) => {
     console.log(data.toString());
-    req.session.output += data.toString();
+    req.session.output += data.toString()
   });
-  checkInfo.stdout.on("end", () => {
+  checkInfo.stderr.on('data',(data)=>{
+    console.error(`stderr: ${data}`)
+    res.send(`Error: ${data}`);
+    return
+  })
+  checkInfo.on("exit", () => {
     req.session.lastLine = req.session.output.trim().split("\n").pop();
-    if (!fs.existsSync(sessionId)) {
-      fs.mkdirSync(sessionId);
+    if (!fs.existsSync(`public/${sessionId}`)) {
+      fs.mkdirSync(`public/${sessionId}`);
     }
-    fs.writeFileSync(`${sessionId}/data.json`, JSON.stringify(req.session.lastLine))
+    fs.writeFileSync(`public/${sessionId}/data.json`, JSON.stringify(req.session.lastLine))
     req.session.Number = 0;
     delete req.session.url
     delete req.session.output
-    const DLMusic = spawn("python3", [
-      `yt-dlp --output ${sessionId}/` + '%(title)s' + ` --extract-audio --audio-format mp3 ${req.session.lastLine[req.session.Number]
-      }`,
-    ]);
-    res.send('Time')
-    return
-    // res.send(req.session.lastLine)
-    console.log("End");
+    const args = [
+      '-o',
+      `public/${sessionId}/%(title)s.%(ext)s`,
+      '--extract-audio',
+      '--audio-format',
+      'mp3',
+      // '--default-search',
+      // 'ytsearch',
+      JSON.parse(req.session.lastLine.replace(/'/g, "\""))[req.session.Number]
+    ]
+    const DLMusic = spawn("yt-dlp", args);
+    DLMusic.stdout.on('data', (data)=>{
+      req.session.output += data.toString();
+      console.log(`stdout: ${data}`)
+    })
+    DLMusic.stderr.on('data', (data)=>{
+      console.error(`stderr: ${data}`)
+      res.send(`Error: ${data}`);
+      return
+    })
+    DLMusic.on('close', (code)=>{
+      console.log(`yt-dlp process exited with code ${code}`)
+      // req.session.lastStr = req.session.output.trim().split("\n").slice(-2,-1)[0]
+      req.session.filePath = req.session.output.trim().split("\n").slice(-2,-1)[0].substring(targetString.length)
+      console.log(`抽出データー: ${req.session.filePath}`)
+      res.redirect("/send");
+      return
+      // delete req.session.ouput
+      // filePath = "/app/public/bb1fb0facf769d730600254116a5ccce4a6c0f1756788fda142f063cd1802aa3/Orangestar - キミノヨゾラ哨戒班 (Official MV).mp3"
+      // if(filePath){
+      //   const readStream = fs.createReadStream(filePath);
+      //   readStream.on('open', ()=>{
+      //     res.writeHead(200, {
+      //       'Content-Type': 'audio/mpeg',
+      //       'Transfer-Encoding': 'chunked'
+      //     });
+      //     readStream.pipe(res);
+      //   });
+      //   readStream.on('error', (err)=>{
+      //     res.statusCode = 500;
+      //     res.end(`Server Error: ${err.message}`)
+      //   })
+      // }
+    });
   });
 });
 

@@ -91,23 +91,51 @@ app.get("/send", (req, res) => {
     return;
   } else {
     const path = req.session.filePath;
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>audio</title>
+    </head>
+    <body>
+        <audio id="audioPlayer" controls>
+            <source src="./${path}" type="audio/mpeg">
+            Your browser does not support the audio element.
+        </audio>
+        <script>
+            const audioPlayer = document.getElementById('audioPlayer');
+            audioPlayer.onended = ()=>{
+                fetch('/song-end', {method: "POST"})
+                    .then(res => res.text())
+                    .then(data => {
+                        const messageDiv = document.createElement('div');
+                        messageDiv.innerHTML = data;
+                        document.body.appendChild(messageDiv)
+                    })
+            }
+        </script>
+    </body>
+    </html>
+    `);
     //const stat = fs.statSync(path);
     //const fileSize = stat.size;
-    const head = {
+//     const head = {
       //"Content-Length": fileSize,
-      "Content-Type": "audio/mpeg",
-      "Transfer-Encoding": "chunked",
-    };
-    const readStream = fs.createReadStream(path);
-    res.writeHead(200, head);
-    readStream.pipe(res);
-    readStream.on("error", (err) => {
-      res.statusCode = 500;
-      res.end(`Server Error: ${err.message}`);
-      return;
-    });
-    readStream.on("end", () => {
-      res.end();
+//       "Content-Type": "audio/mpeg",
+//       "Transfer-Encoding": "chunked",
+//     };
+//     const readStream = fs.createReadStream(path);
+//     res.writeHead(200, head);
+//     readStream.pipe(res);
+//     readStream.on("error", (err) => {
+//       res.statusCode = 500;
+//       res.end(`Server Error: ${err.message}`);
+//       return;
+//     });
+//     readStream.on("end", () => {
+//       res.end();
     });
     // readStream.on('open', ()=>{
     // res.set("Content-Type", "text/html");

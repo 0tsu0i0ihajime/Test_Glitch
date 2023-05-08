@@ -119,37 +119,7 @@ app.get("/send", (req, res) => {
     </body>
     </html>
     `);
-    //const stat = fs.statSync(path);
-    //const fileSize = stat.size;
-//     const head = {
-      //"Content-Length": fileSize,
-//       "Content-Type": "audio/mpeg",
-//       "Transfer-Encoding": "chunked",
-//     };
-//     const readStream = fs.createReadStream(path);
-//     res.writeHead(200, head);
-//     readStream.pipe(res);
-//     readStream.on("error", (err) => {
-//       res.statusCode = 500;
-//       res.end(`Server Error: ${err.message}`);
-//       return;
-//     });
-//     readStream.on("end", () => {
-//       res.end();
     });
-    // readStream.on('open', ()=>{
-    // res.set("Content-Type", "text/html");
-    // res.send(`<!DOCTYPE html>
-    // <html lang="ja">
-    // <head>
-    //     <meta charset="UTF-8">
-    //     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    //     <title>Play</title>
-    // </head>
-    // <body>
-    //   <audio controls src="/send"></audio>
-    // </body>
-    // </html>`)
   }
 });
 
@@ -186,8 +156,6 @@ app.get("/play", (req, res) => {
       "--extract-audio",
       "--audio-format",
       "mp3",
-      // '--default-search',
-      // 'ytsearch',
       JSON.parse(req.session.lastLine.replace(/'/g, '"'))[req.session.Number],
     ];
     const DLMusic = spawn("yt-dlp", args);
@@ -211,24 +179,6 @@ app.get("/play", (req, res) => {
       console.log(`抽出データー: ${req.session.filePath}`);
       res.redirect("/send");
       return;
-      // delete req.session.ouput
-      // filePath = "/app/public/bb1fb0facf769d730600254116a5ccce4a6c0f1756788fda142f063cd1802aa3/Orangestar - キミノヨゾラ哨戒班 (Official MV).mp3"
-      // if(filePath){
-      //   const readStream = fs.createReadStream(filePath);
-      //   readStream.on('open', ()=>{
-      //     res.writeHead(200, {
-      //       'Content-Type': 'audio/mpeg',
-      //       'Transfer-Encoding': 'chunked'
-      //     });
-      //     readStream.pipe(res);
-      //   });
-      //   readStream.on('error', (err)=>{
-      //     res.statusCode = 500;
-      //     res.end(`Server Error: ${err.message}`)
-      //   })
-      // }
-    });
-  });
 });
 
 app.listen(process.env.PORT || 8080, () => {

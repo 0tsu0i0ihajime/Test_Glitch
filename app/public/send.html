@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>audio</title>
+</head>
+<body>
+    <audio id="audioPlayer" controls>
+        <source src="./353d3c0502a19e344b8b0915c4503fc45dda5d0c5c0055733743bf7dc8ad3f61/YOASOBI「怪物」Official Music Video　(YOASOBI - Monster).mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    <script>
+        const audioPlayer = document.getElementById('audioPlayer');
+        audioPlayer.onended = ()=>{
+            console.log('end')
+            // fetch('/song-end', {method: "POST"})
+            //     .then(res => res.text())
+            //     .then(data => {
+            //         const messageDiv = document.createElement('div');
+            //         messageDiv.innerHTML = data;
+            //         document.body.appendChild(messageDiv)
+            //     })
+        }
+    </script>
+</body>
+</html>
